@@ -1,0 +1,36 @@
+name: Generate Scheduled LinkedIn Post
+
+on:
+  schedule:
+    # 12:00 UTC = 8:00 AM EDT (Mon, Wed, Fri)
+    - cron: '0 12 * * 1,3,5'
+  workflow_dispatch:
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install google-genai google-api-python-client google-auth
+
+      - name: Generate Post
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+          GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+        run: python generate_post.py
+
+      - name: Save Draft Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-draft
+          path: drafts/latest_post.md
