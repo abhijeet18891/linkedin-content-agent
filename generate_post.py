@@ -1,8 +1,11 @@
 import os
 import json
+import time
+import random
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from google import genai
+from google.genai import errors as genai_errors
 
 # 1. Authenticate with Google Drive
 def get_drive_service():
@@ -64,6 +67,36 @@ def fetch_all_sources(folder_id):
 
     return aggregated_context
 
+# Retry transient Gemini errors (503 overloaded, 429 rate limit, 5xx) with backoff,
+# then fall back to the next model in the list.
+RETRYABLE_CODES = {429, 500, 502, 503, 504}
+
+def generate_with_retry(client, models, prompt, config, attempts_per_model=5, base_delay=10):
+    last_error = None
+    for model in models:
+        for attempt in range(1, attempts_per_model + 1):
+            try:
+                print(f"Calling {model} (attempt {attempt}/{attempts_per_model})")
+                response = client.models.generate_content(
+                    model=model, contents=prompt, config=config
+                )
+                if response.text and response.text.strip():
+                    return response
+                raise RuntimeError("Empty response from model")
+            except (genai_errors.ServerError, genai_errors.ClientError) as e:
+                code = getattr(e, "code", None)
+                if isinstance(e, genai_errors.ClientError) and code not in RETRYABLE_CODES:
+                    raise  # auth / bad request etc. — retrying won't help
+                last_error = e
+            except RuntimeError as e:
+                last_error = e
+            if attempt < attempts_per_model:
+                delay = min(base_delay * 2 ** (attempt - 1), 120) + random.uniform(0, 5)
+                print(f"  -> {last_error}. Retrying in {delay:.0f}s")
+                time.sleep(delay)
+        print(f"{model} unavailable after {attempts_per_model} attempts, trying next model")
+    raise RuntimeError(f"All models failed. Last error: {last_error}")
+
 # 3. Generate Draft Post via Gemini
 def generate_draft():
     folder_id = os.environ["DRIVE_FOLDER_ID"]
@@ -100,14 +133,17 @@ def generate_draft():
 
     prompt = f"Here is the background documentation and source notes:\n{context_notes}\n\nGenerate the LinkedIn post following all instructions."
 
-    response = client.models.generate_content(
-        model="gemini-3.8-flash",
-        contents=prompt,
-        config=genai.types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            temperature=0.7,
-        ),
+    config = genai.types.GenerateContentConfig(
+        system_instruction=system_instruction,
+        temperature=0.7,
     )
+
+    # Primary model first, then fallbacks (override via GEMINI_MODELS="a,b,c")
+    models = [m.strip() for m in os.environ.get(
+        "GEMINI_MODELS", "gemini-3.8-flash,gemini-flash-latest"
+    ).split(",") if m.strip()]
+
+    response = generate_with_retry(client, models, prompt, config)
 
     os.makedirs("drafts", exist_ok=True)
     with open("drafts/latest_post.md", "w", encoding="utf-8") as f:
