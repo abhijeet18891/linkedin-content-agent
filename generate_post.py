@@ -103,3 +103,22 @@ VOICE & CADENCE RULES:
 OUTPUT FORMAT (STRICT):
 Output only the raw LinkedIn post content ready to be published. Do not wrap in markdown code blocks or meta-labels.
 """
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    
+    prompt = f"Here is the background documentation and source notes:\n{context_notes}\n\nGenerate the LinkedIn post following all instructions."
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config=genai.types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=0.7,
+        ),
+    )
+
+    os.makedirs("drafts", exist_ok=True)
+    with open("drafts/latest_post.md", "w", encoding="utf-8") as f:
+        f.write(response.text.strip())
+
+if __name__ == "__main__":
+    generate_draft()
