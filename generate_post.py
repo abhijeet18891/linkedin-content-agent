@@ -100,7 +100,7 @@ def generate_draft():
     prompt = f"Here is the knowledge base extracted from my Google Drive documents:\n{context_notes}\n\nPick a compelling theme or friction point and craft this morning's post."
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.8-flash",
         contents=prompt,
         config={"system_instruction": system_instruction}
     )
