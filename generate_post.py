@@ -72,6 +72,30 @@ def fetch_all_sources(folder_id):
 # then fall back to the next model in the list.
 RETRYABLE_CODES = {429, 500, 502, 503, 504}
 
+SKIP_WORDS = ("tts", "image", "embedding", "live", "audio", "vision", "robotics", "computer-use", "aqa", "native")
+
+def discover_fallback_models(client, already, limit=4):
+    """Ask the API which text models this key can use, newest flash/pro first."""
+    try:
+        found = []
+        for m in client.models.list():
+            name = (m.name or "").replace("models/", "")
+            actions = m.supported_actions or []
+            if not name.startswith("gemini") or "generateContent" not in actions:
+                continue
+            if any(w in name for w in SKIP_WORDS) or name in already:
+                continue
+            found.append(name)
+        # prefer flash (fast/cheap), then pro; newer version strings sort later
+        flash = sorted([n for n in found if "flash" in n], reverse=True)
+        pro = sorted([n for n in found if "pro" in n and "flash" not in n], reverse=True)
+        picks = (flash + pro)[:limit]
+        print(f"Available fallback models: {picks}")
+        return picks
+    except Exception as e:
+        print(f"Could not list models ({e}); using configured list only")
+        return []
+
 def generate_with_retry(client, models, prompt, config, attempts_per_model=2, base_delay=10):
     last_error = None
     for model in models:
@@ -86,6 +110,10 @@ def generate_with_retry(client, models, prompt, config, attempts_per_model=2, ba
                 raise RuntimeError("Empty response from model")
             except (genai_errors.ServerError, genai_errors.ClientError) as e:
                 code = getattr(e, "code", None)
+                if code == 404:
+                    print(f"  -> {model} not available to this API key, skipping")
+                    last_error = e
+                    break  # move straight to the next model
                 if isinstance(e, genai_errors.ClientError) and code not in RETRYABLE_CODES:
                     raise  # auth / bad request etc. — retrying won't help
                 last_error = e
@@ -159,8 +187,9 @@ def generate_draft():
 
     # Primary model first, then fallbacks (override via GEMINI_MODELS="a,b,c")
     models = [m.strip() for m in os.environ.get(
-        "GEMINI_MODELS", "gemini-3.8-flash,gemini-2.5-flash"
+        "GEMINI_MODELS", "gemini-3.8-flash"
     ).split(",") if m.strip()]
+    models += discover_fallback_models(client, models)
 
     response = generate_with_retry(client, models, prompt, config)
 
