@@ -101,7 +101,7 @@ def generate_draft():
     prompt = f"Here is the background documentation and source notes:\n{context_notes}\n\nGenerate the LinkedIn post following all instructions."
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.8-flash",
         contents=prompt,
         config=genai.types.GenerateContentConfig(
             system_instruction=system_instruction,
