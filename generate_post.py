@@ -72,7 +72,7 @@ def fetch_all_sources(folder_id):
 # then fall back to the next model in the list.
 RETRYABLE_CODES = {429, 500, 502, 503, 504}
 
-def generate_with_retry(client, models, prompt, config, attempts_per_model=4, base_delay=10):
+def generate_with_retry(client, models, prompt, config, attempts_per_model=2, base_delay=10):
     last_error = None
     for model in models:
         for attempt in range(1, attempts_per_model + 1):
@@ -159,7 +159,7 @@ def generate_draft():
 
     # Primary model first, then fallbacks (override via GEMINI_MODELS="a,b,c")
     models = [m.strip() for m in os.environ.get(
-        "GEMINI_MODELS", "gemini-3.8-flash,gemini-flash-latest"
+        "GEMINI_MODELS", "gemini-3.8-flash,gemini-2.5-flash"
     ).split(",") if m.strip()]
 
     response = generate_with_retry(client, models, prompt, config)
