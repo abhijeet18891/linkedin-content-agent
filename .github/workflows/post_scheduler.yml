@@ -34,3 +34,41 @@ jobs:
         with:
           name: scheduled-draft
           path: drafts/latest_post.md
+
+      - name: Send draft to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          python -c "
+          import os, json, urllib.request
+
+          webhook_url = os.environ.get('DISCORD_WEBHOOK_URL')
+          if not webhook_url:
+              raise ValueError('DISCORD_WEBHOOK_URL secret is not set')
+
+          with open('drafts/latest_post.md', 'r', encoding='utf-8') as f:
+          content = f.read().strip()
+
+          # Format as a clean structured Discord embed
+          payload = {
+              'username': 'LinkedIn Content Agent',
+              'avatar_url': 'https://cdn-icons-png.flaticon.com/512/174/174857.png',
+              'embeds': [
+                  {
+                      'title': '📝 New Scheduled LinkedIn Post Draft',
+                      'description': content[:4000],
+                      'color': 3066993,  # LinkedIn blue tone
+                      'footer': {
+                          'text': 'Automated via GitHub Actions'
+                      }
+                  }
+              ]
+          }
+
+          req = urllib.request.Request(
+              webhook_url,
+              data=json.dumps(payload).encode('utf-8'),
+              headers={'Content-Type': 'application/json', 'User-Agent': 'GitHub-Actions'}
+          )
+          urllib.request.urlopen(req)
+          "
