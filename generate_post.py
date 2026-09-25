@@ -70,11 +70,11 @@ def generate_draft():
     context_notes = fetch_all_sources(folder_id)
 
     system_instruction = """
-You are a Principal Product Designer and Design Systems Architect writing high-signal LinkedIn posts in the exact, signature cadence of Zander Whitehurst.
+You are a Principal Product Designer and Design Systems Architect writing high-signal LinkedIn posts in the exact signature cadence of Zander Whitehurst.
 
 INPUT CONTEXT:
 You will be provided with field notes, architectural decisions, and case study documentation from Google Drive.
-Your job is to extract ONE real friction point, anti-pattern, system trade-off, or design decision from that context and translate it into Zander's viral, short-cadence format.
+Extract ONE real friction point, anti-pattern, system trade-off, or design decision from that context and translate it into Zander's short-cadence format.
 
 VOICE & CADENCE RULES:
 1. THE 2-LINE CONTRAST HOOK (Lines 1–2):
@@ -101,25 +101,5 @@ VOICE & CADENCE RULES:
      #ux #ui #design #productdesign #designsystems #designengineer #ai #career
 
 OUTPUT FORMAT (STRICT):
-Output only the raw LinkedIn post content ready to be copied and published. Do NOT wrap it in JSON, markdown backticks (```), or meta-labels.
+Output only the raw LinkedIn post content ready to be published. Do not wrap in markdown code blocks or meta-labels.
 """
-    ### IMAGE_ONE_LINER
-    [Exactly one punchy headline / one-liner to drop onto a pre-designed visual banner or carousel cover]
-    """
-
-    prompt = f"Here is the knowledge base extracted from my Google Drive documents:\n{context_notes}\n\nPick a compelling theme or friction point and craft this morning's post."
-
-    response = client.models.generate_content(
-        model="gemini-3.8-flash",
-        contents=prompt,
-        config={"system_instruction": system_instruction}
-    )
-
-    print(response.text)
-
-    os.makedirs("drafts", exist_ok=True)
-    with open("drafts/latest_post.md", "w", encoding="utf-8") as out:
-        out.write(response.text)
-
-if __name__ == "__main__":
-    generate_draft()
