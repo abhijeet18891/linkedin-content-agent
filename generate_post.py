@@ -6,6 +6,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from google import genai
 from google.genai import errors as genai_errors
+import httpx
 
 # 1. Authenticate with Google Drive
 def get_drive_service():
@@ -71,7 +72,7 @@ def fetch_all_sources(folder_id):
 # then fall back to the next model in the list.
 RETRYABLE_CODES = {429, 500, 502, 503, 504}
 
-def generate_with_retry(client, models, prompt, config, attempts_per_model=5, base_delay=10):
+def generate_with_retry(client, models, prompt, config, attempts_per_model=4, base_delay=10):
     last_error = None
     for model in models:
         for attempt in range(1, attempts_per_model + 1):
@@ -88,8 +89,8 @@ def generate_with_retry(client, models, prompt, config, attempts_per_model=5, ba
                 if isinstance(e, genai_errors.ClientError) and code not in RETRYABLE_CODES:
                     raise  # auth / bad request etc. — retrying won't help
                 last_error = e
-            except RuntimeError as e:
-                last_error = e
+            except (httpx.TimeoutException, httpx.TransportError, RuntimeError) as e:
+                last_error = e  # request hung / network blip / empty reply — retry
             if attempt < attempts_per_model:
                 delay = min(base_delay * 2 ** (attempt - 1), 120) + random.uniform(0, 5)
                 print(f"  -> {last_error}. Retrying in {delay:.0f}s")
@@ -140,7 +141,14 @@ def generate_draft():
         "Then, after the hashtags, add a blank line, a line containing exactly ===IMAGE===, and the 2-line image one-liner below it. Nothing after that."
     )
 
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    # Hard 90s cap per request so a stalled call can't hang the job
+    client = genai.Client(
+        api_key=os.environ["GEMINI_API_KEY"],
+        http_options=genai.types.HttpOptions(
+            timeout=90_000,  # milliseconds
+            retry_options=genai.types.HttpRetryOptions(attempts=1),  # we retry ourselves
+        ),
+    )
 
     prompt = f"Here is the background documentation and source notes:\n{context_notes}\n\nGenerate the LinkedIn post following all instructions."
 
