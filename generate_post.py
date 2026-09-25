@@ -125,8 +125,19 @@ def generate_draft():
         "   - Followed by a dash separator and clean lowercase hashtags:\n"
         "     —\n"
         "     #ux #ui #design #productdesign #designsystems #designengineer #ai #career\n\n"
+        "5. IMAGE ONE-LINER (for the accompanying graphic):\n"
+        "   - After the hashtags, write ONE punchy statement that distills the post's core idea, to be set as large type on a square image.\n"
+        "   - Structure it as a 2-line contrast: line 1 sets up the claim, line 2 delivers the turn.\n"
+        "     Example:\n"
+        "       It's impossible to build a [design-led company]\n"
+        "       Without [design-led leadership]\n"
+        "   - Wrap the 1-2 key phrases to highlight in [square brackets] (one per line max).\n"
+        "   - Max 14 words total. No emojis, no hashtags, no ending punctuation, no quotation marks.\n"
+        "   - It must stand alone: someone who never reads the post should still get the idea.\n"
+        "   - Do not simply copy the post's opening hook; sharpen it into the single most quotable line.\n\n"
         "OUTPUT FORMAT (STRICT):\n"
-        "Output only the raw LinkedIn post content ready to be published. Do not wrap in markdown code blocks or meta-labels."
+        "Output the raw LinkedIn post content ready to be published. Do not wrap in markdown code blocks or add any other meta-labels.\n"
+        "Then, after the hashtags, add a blank line, a line containing exactly ===IMAGE===, and the 2-line image one-liner below it. Nothing after that."
     )
 
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
