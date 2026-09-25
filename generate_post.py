@@ -121,5 +121,5 @@ def generate_draft():
     with open("drafts/latest_post.md", "w", encoding="utf-8") as f:
         f.write(response.text.strip())
 
-if __name__ == "__main__":
+    if __name__ == "__main__":
     generate_draft()
